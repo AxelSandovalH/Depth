@@ -13,7 +13,7 @@ struct RecordingView: View {
     @State private var flashlightOn      = false
     @State private var recPulse          = false
 
-    // Cooldown prevents the same gesture from firing twice in a row
+    // Short cooldown after confirmation fires (GestureManager handles hold protection)
     @State private var gestureCooldown   = false
 
     // MARK: - Body
@@ -46,7 +46,10 @@ struct RecordingView: View {
                 Spacer()
 
                 // ── Center gesture feedback ─────────────────────────────
-                GestureFeedbackView(status: gestureUIStatus)
+                GestureFeedbackView(
+                    status: gestureUIStatus,
+                    holdProgress: gesture.holdProgress
+                )
 
                 Spacer()
 
@@ -72,44 +75,48 @@ struct RecordingView: View {
             camera.stopRecording()
             camera.stopSession()
         }
-        // React to real gestures
-        .onChange(of: gesture.detectedGesture) { _, newGesture in
-            handleGesture(newGesture)
+        // React only when hold is fully confirmed (not on raw frame-by-frame changes)
+        .onChange(of: gesture.confirmedGesture) { _, confirmed in
+            guard confirmed != .none else { return }
+            handleGesture(confirmed)
         }
     }
 
     // MARK: - Gesture logic
 
-    private func handleGesture(_ detected: DetectedGesture) {
+    private func handleGesture(_ confirmed: DetectedGesture) {
+        // Hold-to-confirm already provides the 2s protection.
+        // gestureCooldown is just a short guard against the GestureManager
+        // firing twice during its own reset window (0.4s).
         guard !gestureCooldown else { return }
 
-        switch detected {
+        switch confirmed {
 
         case .openHand:
             // ✋ Start recording (only when stopped and unlocked)
             guard !isLocked, !camera.isRecording else { return }
             camera.startRecording()
-            triggerCooldown(seconds: 1.5)
+            triggerCooldown()
 
         case .fist:
             // ✊ Stop recording (only when recording and unlocked)
             guard !isLocked, camera.isRecording else { return }
             camera.stopRecording()
-            triggerCooldown(seconds: 1.5)
+            triggerCooldown()
 
         case .ok:
-            // 👌 Toggle lock (always works)
+            // 👌 Toggle lock (always works, even when locked)
             withAnimation(.spring(response: 0.3)) { isLocked.toggle() }
-            triggerCooldown(seconds: 2.0)
+            triggerCooldown()
 
         case .none:
             break
         }
     }
 
-    private func triggerCooldown(seconds: Double) {
+    private func triggerCooldown() {
         gestureCooldown = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             gestureCooldown = false
         }
     }
@@ -117,15 +124,14 @@ struct RecordingView: View {
     // MARK: - Derived state
 
     private var gestureUIStatus: GestureStatus {
-        if isLocked { return .locked }
-        switch gesture.detectedGesture {
-        case .openHand, .fist, .ok: return .detected
-        case .none:                 return .active
-        }
+        if isLocked                  { return .locked }
+        if gesture.holdProgress > 0  { return .detected }   // hold in progress
+        return .active
     }
 
     private var gestureStatusLabel: String {
-        if isLocked { return "LOCKED" }
+        if isLocked                     { return "LOCKED" }
+        if gesture.holdProgress > 0     { return "HOLDING..." }
         switch gesture.detectedGesture {
         case .openHand: return "OPEN HAND"
         case .fist:     return "FIST"
