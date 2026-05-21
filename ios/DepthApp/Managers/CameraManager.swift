@@ -7,7 +7,12 @@ final class CameraManager: NSObject, ObservableObject {
     @Published var isRecording = false
     @Published var recordingTime: TimeInterval = 0
 
-    private var videoOutput: AVCaptureMovieFileOutput?
+    /// Called on every video frame — wire this to GestureManager.process(sampleBuffer:)
+    var onFrame: ((CMSampleBuffer) -> Void)?
+
+    private var movieOutput: AVCaptureMovieFileOutput?
+    private var frameOutput: AVCaptureVideoDataOutput?
+    private let frameQueue = DispatchQueue(label: "depth.gesture.frames", qos: .userInteractive)
     private var timer: Timer?
 
     override init() {
@@ -19,7 +24,8 @@ final class CameraManager: NSObject, ObservableObject {
 
     private func configure() {
         session.beginConfiguration()
-        session.sessionPreset = .hd4K3840x2160
+        // 1080p allows both MovieFileOutput + VideoDataOutput on all supported iPhones
+        session.sessionPreset = .hd1920x1080
 
         guard
             let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
@@ -35,10 +41,21 @@ final class CameraManager: NSObject, ObservableObject {
             session.addInput(audioInput)
         }
 
-        let movieOutput = AVCaptureMovieFileOutput()
-        if session.canAddOutput(movieOutput) {
-            session.addOutput(movieOutput)
-            self.videoOutput = movieOutput
+        // Movie recording output
+        let movie = AVCaptureMovieFileOutput()
+        if session.canAddOutput(movie) {
+            session.addOutput(movie)
+            self.movieOutput = movie
+        }
+
+        // Frame output for gesture recognition (discards late frames to stay real-time)
+        let frame = AVCaptureVideoDataOutput()
+        frame.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+        frame.alwaysDiscardsLateVideoFrames = true
+        if session.canAddOutput(frame) {
+            session.addOutput(frame)
+            frame.setSampleBufferDelegate(self, queue: frameQueue)
+            self.frameOutput = frame
         }
 
         session.commitConfiguration()
@@ -59,7 +76,7 @@ final class CameraManager: NSObject, ObservableObject {
     // MARK: - Recording
 
     func startRecording() {
-        guard let output = videoOutput, !output.isRecording else { return }
+        guard let output = movieOutput, !output.isRecording else { return }
 
         let fileName = "depth_\(Int(Date().timeIntervalSince1970)).mov"
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
@@ -76,7 +93,7 @@ final class CameraManager: NSObject, ObservableObject {
     }
 
     func stopRecording() {
-        videoOutput?.stopRecording()
+        movieOutput?.stopRecording()
         timer?.invalidate()
         timer = nil
         DispatchQueue.main.async { [weak self] in
@@ -103,5 +120,15 @@ extension CameraManager: AVCaptureFileOutputRecordingDelegate {
                     error: Error?) {
         guard error == nil else { return }
         UISaveVideoAtPathToSavedPhotosAlbum(outputFileURL.path, nil, nil, nil)
+    }
+}
+
+// MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
+
+extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
+    func captureOutput(_ output: AVCaptureOutput,
+                       didOutput sampleBuffer: CMSampleBuffer,
+                       from connection: AVCaptureConnection) {
+        onFrame?(sampleBuffer)
     }
 }
