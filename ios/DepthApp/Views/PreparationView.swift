@@ -49,7 +49,7 @@ struct PreparationView: View {
 
                 // Enter Dive Mode button
                 Button {
-                    navigate(to: .recording)
+                    navigate(.recording)
                 } label: {
                     Text("ENTER DIVE MODE")
                         .font(.system(size: 13, weight: .medium))
@@ -64,7 +64,7 @@ struct PreparationView: View {
                 .animation(.easeInOut(duration: 0.3), value: allReady)
 
                 // Recalibrate link
-                Button { navigate(to: .calibration) } label: {
+                Button { navigate(.calibration) } label: {
                     Text("Recalibrate Gestures")
                         .font(.depthMono(10))
                         .foregroundColor(.white.opacity(0.25))

@@ -60,7 +60,7 @@ struct GalleryView: View {
                                 .tracking(2)
                         }
                         Spacer()
-                        Button { navigate(to: .home) } label: {
+                        Button { navigate(.home) } label: {
                             Image(systemName: "house")
                                 .font(.system(size: 18, weight: .light))
                                 .foregroundColor(.white.opacity(0.45))
@@ -96,7 +96,7 @@ struct GalleryView: View {
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                         ForEach(Array(dives.enumerated()), id: \.element.id) { i, dive in
                             DiveCard(dive: dive, gradient: gradients[i % gradients.count]) {
-                                navigate(to: .videoPreview(id: dive.id))
+                                navigate(.videoPreview(id: dive.id))
                             }
                         }
                     }

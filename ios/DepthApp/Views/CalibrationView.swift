@@ -111,7 +111,7 @@ struct CalibrationView: View {
     @ViewBuilder
     private var footerButtons: some View {
         if allComplete {
-            Button { navigate(to: .preparation) } label: {
+            Button { navigate(.preparation) } label: {
                 primaryLabel("ALL GESTURES CALIBRATED  →")
             }
         } else if isStepComplete {

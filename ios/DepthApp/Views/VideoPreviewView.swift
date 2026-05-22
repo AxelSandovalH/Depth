@@ -55,7 +55,7 @@ struct VideoPreviewView: View {
             VStack(spacing: 0) {
                 // Header
                 HStack {
-                    Button { navigate(to: .gallery) } label: {
+                    Button { navigate(.gallery) } label: {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 16, weight: .light))
                             .foregroundColor(.white.opacity(0.7))

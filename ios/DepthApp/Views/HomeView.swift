@@ -43,7 +43,7 @@ struct HomeView: View {
 
                 // Start Dive button
                 Button {
-                    navigate(to: .preparation)
+                    navigate(.preparation)
                 } label: {
                     HStack(spacing: 12) {
                         Circle()
@@ -73,7 +73,7 @@ struct HomeView: View {
                 // Bottom nav icons
                 HStack(spacing: 40) {
                     navButton(icon: "gearshape", label: "SETTINGS") {}
-                    navButton(icon: "photo.stack", label: "GALLERY") { navigate(to: .gallery) }
+                    navButton(icon: "photo.stack", label: "GALLERY") { navigate(.gallery) }
                 }
                 .padding(.top, 24)
                 .padding(.bottom, 40)
